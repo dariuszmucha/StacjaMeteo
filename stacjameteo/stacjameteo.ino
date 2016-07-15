@@ -6,6 +6,7 @@
 
 #include "Adafruit_BLE.h"
 #include "Adafruit_BluefruitLE_SPI.h"
+#include "DHT.h"
 
 #include "BluefruitConfig.h"
 #include "BluefruitLECustom.h"
@@ -13,6 +14,18 @@
 // Create the bluefruit object, either software serial...uncomment these lines
 /* ...hardware SPI, using SCK/MOSI/MISO hardware SPI pins and then user selected CS/IRQ/RST */
 CBluefruitLECustom ble = CBluefruitLECustom();
+
+#define DHTPIN 14
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
+
+#define PRINT_DEBUGx
+#ifdef PRINT_DEBUG
+#define debug(x) Serial.println(x)
+#else
+#define debug
+#endif
 
 /**************************************************************************/
 /*!
@@ -22,16 +35,21 @@ CBluefruitLECustom ble = CBluefruitLECustom();
 /**************************************************************************/
 void setup(void)
 {
-  //while (!Serial);  // required for Flora & Micro
+#ifdef PRINT_DEBUG
+  while (!Serial);  // required for Flora & Micro
+  Serial.begin(115200);
+  debug(F("Adafruit Bluefruit AT Command Example"));
+  debug(F("-------------------------------------"));
+#endif
   delay(500);
 
   ble.begin(false);
   ble.echo(false);
   ble.info();
 
-  uint8_t adv_data[] = {0x0d, 0xff, 0x04, 0x00, 0x44, 0x75, 0x70, 0x61, 0x20, 0x63, 0x79, 0x63, 0x6b, 0x69};
-  ble.setAdvData(adv_data, sizeof(adv_data));
-  ble.setAdvInterval(2000);
+  ble.factoryReset();
+
+  dht.begin();
 }
 
 /**************************************************************************/
@@ -41,6 +59,21 @@ void setup(void)
 /**************************************************************************/
 void loop(void)
 {
+  
+  
+  uint8_t h = (uint8_t)dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  uint8_t t = (uint8_t)dht.readTemperature();
 
+  String resTemp = "Temp = " + String(t);
+  String resHum = "Hum = " + String(h) + "%";
+
+  uint8_t adv_data[] = {0x07, 0xff, h, t, 0x00, 0x00, 0x00, 0x00};
+  ble.setAdvData(adv_data, sizeof(adv_data));
+  
+  debug(resTemp);
+  debug(resHum);
+
+  delay(60000);
 }
 
