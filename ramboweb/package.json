@@ -1,0 +1,16 @@
+{
+  "name": "ramboweb",
+  "version": "1.0.0",
+  "keywords": [
+    "util",
+    "functional",
+    "server",
+    "client",
+    "browser"
+  ],
+  "author": "darek",
+  "contributors": [],
+  "dependencies": {
+    "mongodb": "2.2.4"
+  }
+}
