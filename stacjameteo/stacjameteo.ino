@@ -1,8 +1,5 @@
 #include <Arduino.h>
 #include <SPI.h>
-#if not defined (_VARIANT_ARDUINO_DUE_X_) && not defined (_VARIANT_ARDUINO_ZERO_)
-  #include <SoftwareSerial.h>
-#endif
 
 #include "Adafruit_BLE.h"
 #include "Adafruit_BluefruitLE_SPI.h"
@@ -10,6 +7,8 @@
 
 #include "BluefruitConfig.h"
 #include "BluefruitLECustom.h"
+
+#include "CDustSensor.h"
 
 // Create the bluefruit object, either software serial...uncomment these lines
 /* ...hardware SPI, using SCK/MOSI/MISO hardware SPI pins and then user selected CS/IRQ/RST */
@@ -19,8 +18,9 @@ CBluefruitLECustom ble = CBluefruitLECustom();
 #define DHTTYPE DHT11
 
 DHT dht(DHTPIN, DHTTYPE);
+CDustSensor *dustSensor;
 
-#define PRINT_DEBUGx
+#define PRINT_DEBUG
 #ifdef PRINT_DEBUG
 #define debug(x) Serial.println(x)
 #else
@@ -35,8 +35,9 @@ DHT dht(DHTPIN, DHTTYPE);
 /**************************************************************************/
 void setup(void)
 {
+
 #ifdef PRINT_DEBUG
-  while (!Serial);  // required for Flora & Micro
+  while (!Serial);
   Serial.begin(115200);
   debug(F("Adafruit Bluefruit AT Command Example"));
   debug(F("-------------------------------------"));
@@ -46,10 +47,10 @@ void setup(void)
   ble.begin(false);
   ble.echo(false);
   ble.info();
-
   ble.factoryReset();
-
   dht.begin();
+  dustSensor = new CDustSensor();
+
 }
 
 /**************************************************************************/
@@ -59,8 +60,6 @@ void setup(void)
 /**************************************************************************/
 void loop(void)
 {
-  
-  
   uint8_t h = (uint8_t)dht.readHumidity();
   // Read temperature as Celsius (the default)
   uint8_t t = (uint8_t)dht.readTemperature();
@@ -68,12 +67,18 @@ void loop(void)
   String resTemp = "Temp = " + String(t);
   String resHum = "Hum = " + String(h) + "%";
 
-  uint8_t adv_data[] = {0x07, 0xff, h, t, 0x00, 0x00, 0x00, 0x00};
+  dustSensor->Update();
+  uint16_t pm25 = dustSensor->GetPM25();
+  uint16_t pm10 = dustSensor->GetPM10();
+
+  uint8_t adv_data[] = {0x07, 0xff, h, t, (uint8_t)(pm25 >> 8), (uint8_t)(pm25 & 0xFF), (uint8_t)(pm10 >> 8), (uint8_t)(pm10 & 0xFF)};
   ble.setAdvData(adv_data, sizeof(adv_data));
   
   debug(resTemp);
   debug(resHum);
+  debug("PM10 = " + String(pm10));
+  debug("PM2.5 = " + String(pm25));
 
-  delay(60000);
+  delay(2000);
 }
 

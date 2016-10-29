@@ -8,9 +8,19 @@
 	<script type="text/javascript" src="flot/jquery.js"></script>
 	<script type="text/javascript" src="flot/jquery.flot.js"></script>
         <script type="text/javascript" src="main.js"></script>
+        <script type="text/javascript" src="node_modules/mongodb/lib/mongo_client.js"></script>
+        
+        <script type="text/javascript">
+            
+            alert('Hello, World!');
+        var MongoClient = require('mongodb').MongoClient;
+        alert('Hello, World!');
+	</script>
+        
 	<script type="text/javascript">
  
-        myFunction();
+ 
+        
         
 	$(function() {
             
@@ -68,8 +78,9 @@
 
 		$("#footer").prepend("Flot " + $.plot.version + " &ndash; ");
 	});
+        </script>
+        
 
-	</script>
 </head>
 <body>
 

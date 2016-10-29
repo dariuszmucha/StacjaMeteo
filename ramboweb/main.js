@@ -12,18 +12,19 @@ function myFunction() {
         });
      };
 
-    //var MongoClient = require('mongodb').MongoClient;
-    //var assert = require('assert');
+    var MongoClient = require('mongodb').MongoClient;
+    var assert = require('assert');
+    alert('Hello, World!');
 
     var url = 'mongodb://ramboPower:QAZXSW1200@ds023425.mlab.com:23425/rambodb';
 
 
-    //MongoClient.connect(url, function(err, db) {
-    //  assert.equal(null, err);
-    //  findRestaurants(db, function() {
-    //      db.close();
-    //  });
-    //  });
+    MongoClient.connect(url, function(err, db) {
+      assert.equal(null, err);
+      findRestaurants(db, function() {
+          db.close();
+      });
+    });
 }
 
 // o6k+EtSWiE+,#Z!
