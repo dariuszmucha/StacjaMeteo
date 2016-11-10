@@ -183,10 +183,14 @@ void loop(void)
   {
     uint8_t h = (uint8_t)dht.readHumidity();
     uint8_t t = (uint8_t)dht.readTemperature();
-  
-    if(!dustSensor->Request(pmUpdateRequestID)) { debug("Request pmUpdateRequestID failed !!!");}
-    uint16_t pm25 = dustSensor->GetPM25();
-    uint16_t pm10 = dustSensor->GetPM10();
+    uint16_t pm25 = 0;
+    uint16_t pm10 = 0;
+    do
+    {
+      if(!dustSensor->Request(pmUpdateRequestID)) { debug("Request pmUpdateRequestID failed !!!");}
+      pm25 = dustSensor->GetPM25();
+      pm10 = dustSensor->GetPM10();
+    } while(pm25 == 0 || pm10 == 0);
 
     if(!sensorResults.Add(pm25, pm10, t, h)) { debug("Fail - sensor queue overflow !!!"); }
 
