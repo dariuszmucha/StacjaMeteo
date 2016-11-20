@@ -12,7 +12,7 @@ private:
 public:
   CBluefruitLECustom();
   
-  void setAdvInterval(uint16_t interval);  
+  void setAdvInterval();  
 };
 
 #endif

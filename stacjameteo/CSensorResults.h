@@ -6,7 +6,7 @@ class CSensorResults
   private:
     uint16_t* pm25Results;
     uint16_t* pm10Results;
-    uint8_t* temperatureResults;
+    int8_t* temperatureResults;
     uint8_t* humidityResults;
 
     uint8_t pos;
@@ -25,6 +25,21 @@ class CSensorResults
         }
       }
       return (uint16_t)(sum / calculatedElements);
+    }
+
+    int16_t CalcAvgSigned(int8_t *arr)
+    {
+      uint8_t calculatedElements = 0;
+      int32_t sum = 0;
+      for(uint8_t i = 0; i < pos; i++)
+      {
+        if(arr[i] > 0)
+        {
+          sum += arr[i];
+          calculatedElements++;
+        }
+      }
+      return (int16_t)(sum / (int16_t)calculatedElements);
     }
 
     uint16_t CalcAvg(uint16_t *arr)
@@ -47,7 +62,7 @@ class CSensorResults
     { 
       pm25Results = new uint16_t[arraySize];
       pm10Results = new uint16_t[arraySize];
-      temperatureResults = new uint8_t[arraySize];
+      temperatureResults = new int8_t[arraySize];
       humidityResults = new uint8_t[arraySize];
       Clear();
       pos = 0;
@@ -60,7 +75,7 @@ class CSensorResults
       delete[] humidityResults;
     } 
 
-    bool Add(uint16_t pm25, uint16_t pm10, uint8_t temp, uint8_t humid)
+    bool Add(uint16_t pm25, uint16_t pm10, int8_t temp, uint8_t humid)
     {
       if(pos < arraySize)
       {
@@ -80,7 +95,7 @@ class CSensorResults
     {
       memset(pm25Results, 0, sizeof(uint16_t) * arraySize);
       memset(pm10Results, 0, sizeof(uint16_t) * arraySize);
-      memset(temperatureResults, 0, sizeof(uint8_t) * arraySize);
+      memset(temperatureResults, 0, sizeof(int8_t) * arraySize);
       memset(humidityResults, 0, sizeof(uint8_t) * arraySize);
       pos = 0;
     }
@@ -95,9 +110,9 @@ class CSensorResults
       return CalcAvg(pm10Results);
     }
 
-    uint16_t GetTempAvg()
+    int16_t GetTempAvg()
     {
-      return CalcAvg(temperatureResults);
+      return CalcAvgSigned(temperatureResults);
     }
 
     uint16_t GetHumidAvg()

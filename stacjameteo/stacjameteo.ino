@@ -2,7 +2,6 @@
 #include <SPI.h>
 #include "Adafruit_BLE.h"
 #include "Adafruit_BluefruitLE_SPI.h"
-#include "Adafruit_BLEBattery.h"
 #include "DHT.h"
 #include "BluefruitConfig.h"
 #include "BluefruitLECustom.h"
@@ -11,7 +10,6 @@
 #include "CSensorResults.h"
 
 CBluefruitLECustom ble = CBluefruitLECustom();
-Adafruit_BLEBattery bleBattery(ble);
 
 #define DHTPIN 14
 #define DHTTYPE DHT11
@@ -25,7 +23,7 @@ CBattery batteryLevel(VBATPIN);
 
 CDustSensor *dustSensor;
 
-#define PRINT_DEBUGx
+#define PRINT_DEBUG
 #ifdef PRINT_DEBUG
 #define debug(x) Serial.println(x)
 #else
@@ -57,8 +55,6 @@ void setup(void)
 #ifdef PRINT_DEBUG
   while (!Serial);
   Serial.begin(115200);
-  debug(F("Adafruit Bluefruit AT Command Example"));
-  debug(F("-------------------------------------"));
 #endif
   delay(500);
 
@@ -66,7 +62,6 @@ void setup(void)
   ble.echo(false);
   ble.info();
   ble.factoryReset();
-  bleBattery.begin(true);
   
   dht.begin();
   dustSensor = new CDustSensor();
@@ -87,64 +82,89 @@ void setup(void)
 
 uint8_t goToSleepCounter = 0;
 
+static void GoToSleepDustSensor()
+{
+  debug("Go to sleep");
+  if(!dustSensor->Request(setSleepWorkID, DUSTSENSOR_SETSLEEPMODE)) { debug("Request setSleepWorkID failed !!!");}
+  delaySeconds(SLEEPPERIOD);
+}
+
+static void WakeUpDustSensor()
+{
+  debug("Wake up");
+  if(!dustSensor->Request(setSleepWorkID, DUSTSENSOR_SETWORKMODE)) { debug("Request setSleepWorkID failed !!!");}
+  delaySeconds(WAKEUPDELAY);
+}
+
+static void UpdateAdvData()
+{
+  uint16_t pm25Avg = sensorResults.GetPM25Avg();
+  uint16_t pm10Avg = sensorResults.GetPM10Avg();
+  int8_t tempAvg = sensorResults.GetTempAvg();
+  uint8_t humidAvg = sensorResults.GetHumidAvg();
+  
+
+  debug("Avg Temp = " + String(tempAvg));
+  debug("Avg Hum = " + String(humidAvg) + "%");
+  debug("Avg PM10 = " + String(pm10Avg));
+  debug("Avg PM2.5 = " + String(pm25Avg)); 
+
+  sensorResults.Clear();
+
+  uint8_t battLevel = batteryLevel.GetBattLevel();
+  debug("VBat: " + String(battLevel) + "%"); 
+
+  uint8_t adv_data[] = {0x08, 0xff, humidAvg, tempAvg, (uint8_t)(pm25Avg >> 8), (uint8_t)(pm25Avg & 0xFF), (uint8_t)(pm10Avg >> 8), (uint8_t)(pm10Avg & 0xFF), battLevel};
+  ble.setAdvData(adv_data, sizeof(adv_data));
+}
+
+static void GetDataFromSensors()
+{
+  uint8_t h = (uint8_t)dht.readHumidity();
+  int8_t t = (int8_t)dht.readTemperature();
+  uint16_t pm25 = 0;
+  uint16_t pm10 = 0;
+  do
+  {
+    if(!dustSensor->Request(pmUpdateRequestID)) { debug("Request pmUpdateRequestID failed !!!");}
+    pm25 = dustSensor->GetPM25();
+    pm10 = dustSensor->GetPM10();
+  } while(pm25 == 0 || pm10 == 0);
+
+  if(!sensorResults.Add(pm25, pm10, t, h)) { debug("Fail - sensor queue overflow !!!"); }
+
+  debug("Sample no " + String(goToSleepCounter));
+  debug("Temp = " + String(t) + " Hum = " + String(h) + "%");
+  debug("PM10 = " + String(pm10) + " PM2.5 = " + String(pm25));
+
+  delaySeconds(WORKTICK);
+}
+
 void loop(void)
 {
-  if(goToSleepCounter < NUMBER_OF_SAMPLES)
+  if(batteryLevel.GetBattLevel() > 0)
   {
-    uint8_t h = (uint8_t)dht.readHumidity();
-    uint8_t t = (uint8_t)dht.readTemperature();
-    uint16_t pm25 = 0;
-    uint16_t pm10 = 0;
-    do
+    if(goToSleepCounter < NUMBER_OF_SAMPLES)
     {
-      if(!dustSensor->Request(pmUpdateRequestID)) { debug("Request pmUpdateRequestID failed !!!");}
-      pm25 = dustSensor->GetPM25();
-      pm10 = dustSensor->GetPM10();
-    } while(pm25 == 0 || pm10 == 0);
-
-    if(!sensorResults.Add(pm25, pm10, t, h)) { debug("Fail - sensor queue overflow !!!"); }
-
-    debug("Sample no " + String(goToSleepCounter));
-    debug("Temp = " + String(t) + " Hum = " + String(h) + "%");
-    debug("PM10 = " + String(pm10) + " PM2.5 = " + String(pm25));
-  
-    goToSleepCounter++;
-  
-    delaySeconds(WORKTICK);
-  }
-  else if(goToSleepCounter == NUMBER_OF_SAMPLES)
-  {
-    uint16_t pm25Avg = sensorResults.GetPM25Avg();
-    uint16_t pm10Avg = sensorResults.GetPM10Avg();
-    uint8_t tempAvg = sensorResults.GetTempAvg();
-    uint8_t humidAvg = sensorResults.GetHumidAvg();
-    
-
-    debug("Avg Temp = " + String(tempAvg));
-    debug("Avg Hum = " + String(humidAvg) + "%");
-    debug("Avg PM10 = " + String(pm10Avg));
-    debug("Avg PM2.5 = " + String(pm25Avg)); 
-
-    sensorResults.Clear();
-
-    uint8_t battLevel = batteryLevel.GetBattLevel();
-    debug("VBat: " + String(battLevel) + "%"); 
-    bleBattery.update(battLevel);
-
-    uint8_t adv_data[] = {0x08, 0xff, humidAvg, tempAvg, (uint8_t)(pm25Avg >> 8), (uint8_t)(pm25Avg & 0xFF), (uint8_t)(pm10Avg >> 8), (uint8_t)(pm10Avg & 0xFF), battLevel};
-    ble.setAdvData(adv_data, sizeof(adv_data));
-    
-    goToSleepCounter++;
+      GetDataFromSensors();
+      goToSleepCounter++;
+    }
+    else if(goToSleepCounter == NUMBER_OF_SAMPLES)
+    {
+      UpdateAdvData();
+      goToSleepCounter++;
+    }
+    else
+    {
+      goToSleepCounter = 0;
+      GoToSleepDustSensor();
+      WakeUpDustSensor();
+    }
   }
   else
   {
-    goToSleepCounter = 0;
-    debug("Go to sleep");
-    if(!dustSensor->Request(setSleepWorkID, DUSTSENSOR_SETSLEEPMODE)) { debug("Request setSleepWorkID failed !!!");}
-    delaySeconds(SLEEPPERIOD);
-    debug("Wake up");
-    if(!dustSensor->Request(setSleepWorkID, DUSTSENSOR_SETWORKMODE)) { debug("Request setSleepWorkID failed !!!");}
-    delaySeconds(WAKEUPDELAY);
+    debug("Battery level critical");
+    GoToSleepDustSensor();
   }
 }
 
